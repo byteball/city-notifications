@@ -1,0 +1,12 @@
+{
+  "name": "city-notifications",
+  "version": "0.1.0",
+  "private": false,
+  "engines": {
+    "node": ">=8"
+  },
+  "dependencies": {
+    "aabot": "git+https://github.com/byteball/aabot.git",
+    "discord.js": "^14.16.3"
+  }
+}
