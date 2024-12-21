@@ -128,7 +128,8 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		if (!channel)
 			throw Error(`failed to get discord channel`);
 		try {
-			const guild = discordInstance.guilds.cache.get(process.env.SERVER_ID);
+			const guild = channel.guild;
+
 			if (!guild) throw Error('server not found');
 
 			await guild.members.fetch();
@@ -136,13 +137,11 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 			const discordMember1 = guild.members.cache.find(m => m.user.username === usernames1.discord);
 			const discordMember2 = guild.members.cache.find(m => m.user.username === usernames2.discord);
 
-			if (!discordMember1 || !discordMember2) {
-				console.error(`can't find discord members; may be they are not in the server`);
-				return;
-			}
+			const member1Mention = discordMember1 ? `<@${discordMember1.user.id}>` : '@' + usernames1.discord;
+			const member2Mention = discordMember2 ? `<@${discordMember2.user.id}>` : '@' + usernames2.discord;
 
 			await channel.send({
-				content: `<@${discordMember1.user.id}> <@${discordMember2.user.id}> you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at https://obyte.city/claim/${plot1_num}-${plot2_num} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`,
+				content: `${member1Mention} ${member2Mention} you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at https://obyte.city/claim/${plot1_num}-${plot2_num} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`,
 				allowedMentions: { parse: ['users'] }
 			});
 		}
