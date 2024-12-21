@@ -211,7 +211,6 @@ async function checkForMissedNeighbors() {
 async function startWatching() {
 	await loadLibs();
 
-	if (!process.env.SERVER_ID) throw new Error('error: SERVER_ID is required');
 	if (!process.env.BOT_TOKEN) throw new Error('error: BOT_TOKEN is required');
 
 	await discordInstance.login(process.env.BOT_TOKEN);
