@@ -128,8 +128,21 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		if (!channel)
 			throw Error(`failed to get discord channel`);
 		try {
+			const guild = discordInstance.guilds.cache.get(process.env.SERVER_ID);
+			if (!guild) throw Error('server not found');
+
+			await guild.members.fetch();
+
+			const discordMember1 = guild.members.cache.find(m => m.user.username === usernames1.discord);
+			const discordMember2 = guild.members.cache.find(m => m.user.username === usernames2.discord);
+
+			if (!discordMember1 || !discordMember2) {
+				console.error(`can't find discord members; may be they are not in the server`);
+				return;
+			}
+
 			await channel.send({
-				content: `@${usernames1.discord} @${usernames2.discord} you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at https://obyte.city/claim/${plot1_num}-${plot2_num} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`,
+				content: `<@${discordMember1.user.id}> <@${discordMember2.user.id}> you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at https://obyte.city/claim/${plot1_num}-${plot2_num} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`,
 				allowedMentions: { parse: ['users'] }
 			});
 		}
@@ -199,12 +212,10 @@ async function checkForMissedNeighbors() {
 async function startWatching() {
 	await loadLibs();
 
-    if (process.env.BOT_TOKEN) {
-        await discordInstance.login(process.env.BOT_TOKEN);
-    } else {
-        throw new Error('error: BOT_TOKEN is required');
-    }
+	if (!process.env.SERVER_ID) throw new Error('error: SERVER_ID is required');
+	if (!process.env.BOT_TOKEN) throw new Error('error: BOT_TOKEN is required');
 
+	await discordInstance.login(process.env.BOT_TOKEN);
 
 	eventBus.on("aa_request_applied", onAARequest);
 	eventBus.on("aa_response_applied", onAAResponse);
