@@ -89,7 +89,7 @@ async function checkForNeighbors(plot_num) {
 			const plot1_num = +m[1];
 			const plot1 = vars[name];
 			if (plot1.city === city && plot1.status === 'land' && plot1_num < plot_num) {
-				console.log(`will check if ${name} is a neighbor`);
+				console.log(`will check if ${name} is a neighbor of ${plot_num}`);
 				try {
 					const bNeighbors = await formulaEvaluation.executeGetterInState(db, conf.city_aa, 'are_neighbors', [plot1_num, plot_num], upcomingStateVars, upcomingBalances);
 					console.log(`plots ${plot1_num} and ${plot_num} are neighbors? ${bNeighbors}`);
@@ -99,7 +99,7 @@ async function checkForNeighbors(plot_num) {
 					}
 				}
 				catch (e) {
-					console.log(`are_neighbors failed`, e);
+					console.log(`are_neighbors failed`, plot1_num, plot_num, e);
 				//	neighbor_plot_num = plot1_num;
 				//	break;
 				}
@@ -200,7 +200,7 @@ async function checkForMissedNeighbors() {
 	const [{ value: last_seen_plot_num }] = await db.query("SELECT value FROM node_vars WHERE name='last_plot_num'");
 	const vars = aa_state.getAAStateVars(conf.city_aa);
 	const last_plot_num = vars.state.last_plot_num;
-	for (let plot_num = last_seen_plot_num + 1; plot_num <= last_plot_num; plot_num++){
+	for (let plot_num = +last_seen_plot_num + 1; plot_num <= last_plot_num; plot_num++){
 		const plot = vars['plot_' + plot_num];
 		if (plot)
 			await checkForNeighbors(plot_num);
