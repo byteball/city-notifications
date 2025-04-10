@@ -39,8 +39,18 @@ exports.city_aa = 'XUXPOHYSH6PHQBTM32ZIJX3RHWBJHX4L';
 
 exports.attestors = {
 	'EJC4A7WQGHEZEKW6RLO7F26SAR4LAQBU': 'discord',
+	'V3QPTTW5PSTKNP5UCGCAPMKAJWUK2GC3': 'telegram',
 };
 
 exports.vrf_oracle_aa = '3JMDMAGREGD5D4GDIQQXXKGZATYZD7QB';
+
+exports.DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+exports.DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+exports.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+exports.TELEGRAM_CHANNEL_USERNAME = process.env.TELEGRAM_CHANNEL_USERNAME;
+exports.TELEGRAM_WEBHOOK_DOMAIN = process.env.TELEGRAM_WEBHOOK_DOMAIN;
+
+exports.TELEGRAM_WEBHOOK_PORT = process.env.TELEGRAM_WEBHOOK_PORT || 3000;
+
 
 console.log('finished city notifications conf');

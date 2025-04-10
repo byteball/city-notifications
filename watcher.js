@@ -3,7 +3,6 @@ const _ = require('lodash');
 
 const eventBus = require('ocore/event_bus.js');
 const conf = require('ocore/conf.js');
-const mutex = require('ocore/mutex.js');
 const network = require('ocore/network.js');
 const storage = require("ocore/storage.js");
 const db = require("ocore/db.js");
@@ -16,16 +15,13 @@ const operator = require('aabot/operator.js');
 const aa_state = require('aabot/aa_state.js');
 
 const discordInstance = require('./discordInstance');
+const telegramInstance = require('./telegramInstance');
 
 let notifiedPlots = {};
 
-function wait(ms) {
+function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-
-
-
 
 async function onAAResponse(objAAResponse) {
 	const { aa_address, trigger_unit, trigger_address, bounced, response } = objAAResponse;
@@ -35,7 +31,6 @@ async function onAAResponse(objAAResponse) {
 		return console.log(`request ${trigger_unit} bounced with error`, response.error);
 	handleAAResponse(objAAResponse);
 }
-
 
 async function onAARequest(objAARequest, arrResponses) {
 	const address = objAARequest.unit.authors[0].address;
@@ -114,6 +109,34 @@ async function checkForNeighbors(plot_num) {
 	console.log(`done checking for neighbors of ${plot_num} in ${city}`);
 }
 
+async function getDiscordChannelAndGuild() {
+	const channel = await discordInstance.channels.fetch(conf.DISCORD_CHANNEL_ID);
+	if (!channel)
+		throw Error(`failed to get discord channel`);
+		
+	const guild = channel.guild;
+	if (!guild) throw Error('server not found');
+	
+	await guild.members.fetch();
+	
+	return { channel, guild };
+}
+
+async function sendDiscordMessage(channel, content) {
+	await channel.send({
+		content,
+		allowedMentions: { parse: ['users'] }
+	});
+	
+	return true;
+}
+
+async function formatDiscordMention(guild,username) {
+	const discordMember = guild.members.cache.find(m => m.user.username === username);
+	return discordMember ? `<@${discordMember.user.id}>` : '@' + username;
+}
+
+
 async function notifyNeighbors(plot1_num, plot2_num) {
 	if (notifiedPlots[plot2_num])
 		return console.log(`already notified about plot ${plot2_num} matching`);
@@ -123,35 +146,48 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	const usernames1 = await getUsernames(plot1.owner);
 	const usernames2 = await getUsernames(plot2.owner);
 	console.log({ usernames1, usernames2 });
+
+	const claimUrl = `https://obyte.city/claim/${plot1_num}-${plot2_num}`;
+	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`;
+
 	if (usernames1.discord && usernames2.discord) {
-		const channel = await discordInstance.channels.fetch(process.env.CHANNEL_ID);
-		if (!channel)
-			throw Error(`failed to get discord channel`);
-		try {
-			const guild = channel.guild;
-
-			if (!guild) throw Error('server not found');
-
-			await guild.members.fetch();
-
-			const discordMember1 = guild.members.cache.find(m => m.user.username === usernames1.discord);
-			const discordMember2 = guild.members.cache.find(m => m.user.username === usernames2.discord);
-
-			const member1Mention = discordMember1 ? `<@${discordMember1.user.id}>` : '@' + usernames1.discord;
-			const member2Mention = discordMember2 ? `<@${discordMember2.user.id}>` : '@' + usernames2.discord;
-
-			await channel.send({
-				content: `${member1Mention} ${member2Mention} you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at https://obyte.city/claim/${plot1_num}-${plot2_num} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`,
-				allowedMentions: { parse: ['users'] }
-			});
-		}
-		catch (e) {
-			console.log(`sending to discord failed`, e);
-			throw e;
-		}
+		const { channel, guild } = await getDiscordChannelAndGuild();
+		const member1Mention = await formatDiscordMention(guild, usernames1.discord);
+		const member2Mention = await formatDiscordMention(guild, usernames2.discord);
+		
+		await sendDiscordMessage(channel, `${member1Mention} ${member2Mention} ${messageText}`);
 	}
-	else
-		console.log(`currently only both users on discord are supported`); // todo: both on telegram or they are on different networks
+	
+	if (usernames1.telegram && usernames2.telegram) {
+		const tagUsersForMessage = `${telegramInstance.formatTagUser(usernames1.telegram)} ${telegramInstance.formatTagUser(usernames2.telegram)}`;
+		
+		await telegramInstance.sendMessage(`${tagUsersForMessage} ${messageText}`);
+	}
+
+	if ((usernames1.discord && !usernames2.discord && usernames2.telegram) || (usernames2.discord && !usernames1.discord && usernames1.telegram)) {
+		const discordUsername = usernames1.discord || usernames2.discord;
+		const telegramUsername = usernames1.telegram || usernames2.telegram;
+		
+
+		// discord
+		const { channel, guild } = await getDiscordChannelAndGuild();
+		const discordMentionForDS = await formatDiscordMention(guild, discordUsername);
+		const telegramMentionForDS = '@' + telegramUsername + ' (Telegram)';
+		const formatedUsername1ForDS = usernames1.discord ? discordMentionForDS : telegramMentionForDS;
+		const formatedUsername2ForDS = usernames2.discord ? discordMentionForDS : telegramMentionForDS;
+
+		await sendDiscordMessage(channel, `${formatedUsername1ForDS} ${formatedUsername2ForDS}. ${messageText}`);
+		
+
+		// telegram
+		const telegramMentionForTG = telegramInstance.formatTagUser(telegramUsername);
+		const discordMentionForTG = '@' + discordUsername + ' (Discord)';
+		const formatedUsername1ForTG = usernames1.telegram ? telegramMentionForTG : discordMentionForTG;
+		const formatedUsername2ForTG = usernames2.telegram ? telegramMentionForTG : discordMentionForTG;
+
+		await telegramInstance.sendMessage(`${formatedUsername1ForTG} ${formatedUsername2ForTG}. ${messageText}`);
+	}
+
 	notifiedPlots[plot2_num] = true;
 }
 
@@ -211,10 +247,14 @@ async function checkForMissedNeighbors() {
 async function startWatching() {
 	await loadLibs();
 
-	if (!process.env.BOT_TOKEN) throw new Error('error: BOT_TOKEN is required');
-
-	await discordInstance.login(process.env.BOT_TOKEN);
-
+	if (!conf.DISCORD_BOT_TOKEN) throw new Error('error: DISCORD_BOT_TOKEN is required');
+	if (!conf.DISCORD_CHANNEL_ID) throw new Error('error: DISCORD_CHANNEL_ID is required');
+	if (!conf.TELEGRAM_BOT_TOKEN) throw new Error('error: TELEGRAM_BOT_TOKEN is required');
+	if (!conf.TELEGRAM_CHANNEL_USERNAME) throw new Error('error: TELEGRAM_CHANNEL_USERNAME is required');
+	
+	await discordInstance.login(conf.DISCORD_BOT_TOKEN);
+	await telegramInstance.startBot();
+	
 	eventBus.on("aa_request_applied", onAARequest);
 	eventBus.on("aa_response_applied", onAAResponse);
 
@@ -224,10 +264,10 @@ async function startWatching() {
 		walletGeneral.addWatchedAddress(address);
 
 	initAsset();
+	
+	await sleep(25000); // for update attestors history
 	await checkForMissedNeighbors();
 
 }
 
-
 exports.startWatching = startWatching;
-
