@@ -4,7 +4,7 @@ const conf = require('ocore/conf.js');
 const TOKEN = conf.TELEGRAM_BOT_TOKEN;
 const TARGET_CHANNEL = conf.TELEGRAM_CHANNEL_USERNAME;
 const WEBHOOK_DOMAIN = process.env.TELEGRAM_WEBHOOK_DOMAIN;
-const PORT = conf.TELEGRAM_WEBHOOK_PORT;
+const PORT = Number(conf.TELEGRAM_WEBHOOK_PORT);
 
 const bot = new Telegraf(TOKEN);
 
