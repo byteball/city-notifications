@@ -146,6 +146,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	const usernames1 = await getUsernames(plot1.owner);
 	const usernames2 = await getUsernames(plot2.owner);
 	console.log({ usernames1, usernames2 });
+	let bSent = false;
 
 	const claimUrl = `https://obyte.city/claim/${plot1_num}-${plot2_num}`;
 	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`;
@@ -156,37 +157,41 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		const member2Mention = await formatDiscordMention(guild, usernames2.discord);
 		
 		await sendDiscordMessage(channel, `${member1Mention} ${member2Mention} ${messageText}`);
+		bSent = true;
 	}
 	
 	if (usernames1.telegram && usernames2.telegram) {
 		const tagUsersForMessage = `${telegramInstance.formatTagUser(usernames1.telegram)} ${telegramInstance.formatTagUser(usernames2.telegram)}`;
 		
 		await telegramInstance.sendMessage(`${tagUsersForMessage} ${messageText}`);
+		bSent = true;
 	}
 
-	if ((usernames1.discord && !usernames2.discord && usernames2.telegram) || (usernames2.discord && !usernames1.discord && usernames1.telegram)) {
+	// users are on different networks
+	if (
+		usernames1.discord && !usernames1.telegram && !usernames2.discord && usernames2.telegram
+		||
+		usernames2.discord && !usernames2.telegram && !usernames1.discord && usernames1.telegram
+	) {
+		if (bSent)
+			throw Error(`already sent ${plot1_num} and ${plot2_num}`);
+		
 		const discordUsername = usernames1.discord || usernames2.discord;
 		const telegramUsername = usernames1.telegram || usernames2.telegram;
 		
-
 		// discord
 		const { channel, guild } = await getDiscordChannelAndGuild();
 		const discordMentionForDS = await formatDiscordMention(guild, discordUsername);
-		const telegramMentionForDS = '@' + telegramUsername + ' (Telegram)';
-		const formatedUsername1ForDS = usernames1.discord ? discordMentionForDS : telegramMentionForDS;
-		const formatedUsername2ForDS = usernames2.discord ? discordMentionForDS : telegramMentionForDS;
-
-		await sendDiscordMessage(channel, `${formatedUsername1ForDS} ${formatedUsername2ForDS}. ${messageText}`);
+		await sendDiscordMessage(channel, `${discordMentionForDS} and telegram user @${telegramUsername} ${messageText}`);
 		
-
 		// telegram
 		const telegramMentionForTG = telegramInstance.formatTagUser(telegramUsername);
-		const discordMentionForTG = '@' + discordUsername + ' (Discord)';
-		const formatedUsername1ForTG = usernames1.telegram ? telegramMentionForTG : discordMentionForTG;
-		const formatedUsername2ForTG = usernames2.telegram ? telegramMentionForTG : discordMentionForTG;
-
-		await telegramInstance.sendMessage(`${formatedUsername1ForTG} ${formatedUsername2ForTG}. ${messageText}`);
+		await telegramInstance.sendMessage(`${telegramMentionForTG} and discord user @${discordUsername} ${messageText}`);
+		bSent = true;
 	}
+
+	if (!bSent)
+		console.error(`not notified about plots ${plot1_num} and ${plot2_num}`, usernames1, usernames2);
 
 	notifiedPlots[plot2_num] = true;
 }
