@@ -76,7 +76,9 @@ async function checkForNeighbors(plot_num) {
 	const plot = vars['plot_' + plot_num];
 	if (!plot)
 		throw Error(`plot ${plot_num} not found`);
-	const { city, owner } = plot;
+	const { city, owner, status } = plot;
+	if (status !== 'land')
+		return aa_unlock(`plot ${plot_num} in ${city} is ${status}`);
 	console.log(`checking for neighbors of ${plot_num} in ${city}`);
 	let neighbor_plot_num;
 	for (let name in vars) {
