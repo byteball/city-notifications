@@ -7,6 +7,7 @@ const network = require('ocore/network.js');
 const storage = require("ocore/storage.js");
 const db = require("ocore/db.js");
 const walletGeneral = require("ocore/wallet_general.js");
+const light_wallet = require("ocore/light_wallet.js");
 const constants = require("ocore/constants.js");
 const formulaEvaluation = require("ocore/formula/evaluation.js");
 
@@ -175,7 +176,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	) {
 		if (bSent)
 			throw Error(`already sent ${plot1_num} and ${plot2_num}`);
-		
+
 		const discordUsername = usernames1.discord || usernames2.discord;
 		const telegramUsername = usernames1.telegram || usernames2.telegram;
 		
@@ -249,6 +250,17 @@ async function checkForMissedNeighbors() {
 	console.log(`done checking for missed neighbors`);
 }
 
+// wait until all the addresses added in addWatchedAddress() are processed
+async function waitForUnprocessedAddresses() {
+	while (true) {
+		const rows = await db.query("SELECT address FROM unprocessed_addresses");
+		if (rows.length === 0)
+			return;
+		console.log(`still have unprocessed addresses, will wait`, rows);
+		await sleep(1000);
+	}
+}
+
 async function startWatching() {
 	await loadLibs();
 
@@ -265,12 +277,17 @@ async function startWatching() {
 
 	await aa_state.followAA(conf.city_aa);
 	await aa_state.followAA(conf.vrf_oracle_aa);
+
+	await light_wallet.waitUntilFirstHistoryReceived();
+	console.log('first history received');
+
 	for (let address in conf.attestors)
 		walletGeneral.addWatchedAddress(address);
 
 	initAsset();
 	
-	await sleep(25000); // for update attestors history
+	await waitForUnprocessedAddresses(); // for update attestors history
+
 	await checkForMissedNeighbors();
 
 }
