@@ -88,6 +88,10 @@ async function checkForNeighbors(plot_num) {
 			const plot1 = vars[name];
 			if (plot1.city === city && plot1.status === 'land' && plot1_num < plot_num) {
 				console.log(`will check if ${name} is a neighbor of ${plot_num}`);
+				if (plot1.owner === owner) {
+					console.log(`plots ${name} and ${plot_num} have the same owner`);
+					continue;
+				}
 				try {
 					const bNeighbors = await formulaEvaluation.executeGetterInState(db, conf.city_aa, 'are_neighbors', [plot1_num, plot_num], upcomingStateVars, upcomingBalances);
 					console.log(`plots ${plot1_num} and ${plot_num} are neighbors? ${bNeighbors}`);
