@@ -155,7 +155,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	console.log({ usernames1, usernames2 });
 	let bSent = false;
 
-	const claimUrl = `https://obyte.city/claim/${plot1_num}-${plot2_num}`;
+	const claimUrl = `https://city.obyte.org/claim/${plot1_num}-${plot2_num}`;
 	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`;
 
 	if (usernames1.discord && usernames2.discord) {
