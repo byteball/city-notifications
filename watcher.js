@@ -18,6 +18,8 @@ const aa_state = require('aabot/aa_state.js');
 const discordInstance = require('./discordInstance');
 const telegramInstance = require('./telegramInstance');
 
+const website = 'https://city.obyte.org';
+
 let notifiedPlots = {};
 
 function sleep(ms) {
@@ -48,7 +50,7 @@ async function onAARequest(objAARequest, arrResponses) {
 function handleAAResponse(objAAResponse) {
 	const { aa_address, response: { responseVars } } = objAAResponse;
 	if (aa_address === conf.city_aa && responseVars) {
-		const { event } = responseVars;
+		const { event, events } = responseVars;
 		if (event) {
 			const objEvent = JSON.parse(event);
 			console.log('city event', objEvent);
@@ -61,6 +63,11 @@ function handleAAResponse(objAAResponse) {
 			}
 			else
 				console.log(`not an allocation event`);
+		}
+		else if (events) {
+			const arrEvents = JSON.parse(events);
+			console.log('build events', arrEvents);
+			notifyAboutRewards(arrEvents);
 		}
 		else
 			console.log(`no event from city`);
@@ -155,7 +162,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	console.log({ usernames1, usernames2 });
 	let bSent = false;
 
-	const claimUrl = `https://city.obyte.org/claim/${plot1_num}-${plot2_num}`;
+	const claimUrl = `${website}/claim/${plot1_num}-${plot2_num}`;
 	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`;
 
 	if (usernames1.discord && usernames2.discord) {
@@ -201,6 +208,58 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		console.error(`not notified about plots ${plot1_num} and ${plot2_num}`, usernames1, usernames2);
 
 	notifiedPlots[plot2_num] = true;
+}
+
+async function notifyAboutRewards(arrEvents) {
+	const { owner: address1, house_num: house_num1 } = arrEvents[0];
+	const { owner: address2, house_num: house_num2 } = arrEvents[1];
+	const { plot_num: plot_num11, amount } = arrEvents[2];
+	const { plot_num: plot_num12 } = arrEvents[3];
+	const { plot_num: plot_num21 } = arrEvents[4];
+	const { plot_num: plot_num22 } = arrEvents[5];
+	let usernames = {
+		[address1]: await getUsernames(address1),
+		[address2]: await getUsernames(address2),
+	};
+	const { channel, guild } = await getDiscordChannelAndGuild();
+	let mentions = {};
+	for (let address in usernames) {
+		const { discord, telegram } = usernames[address];
+		mentions[address].discord = discord ? await formatDiscordMention(guild, discord) : `telegram user @${telegram}`;
+		mentions[address].telegram = telegram ? await telegramInstance.formatTagUser(telegram) : `discord user @${discord}`;
+	}
+	const getText = (network) => {
+		const both = mentions[address1][network].includes(' user ') // reorder
+			? `${mentions[address2][network]} and ${mentions[address1][network]}`
+			: `${mentions[address1][network]} and ${mentions[address2][network]}`;
+		return `${both} you've claimed your rewards! ${mentions[address1][network]} receives house ${website}/?house=${house_num1} and plots ${website}/?plot=${plot_num11} and ${website}/?plot=${plot_num12}, ${mentions[address2][network]} receives house ${website}/?house=${house_num2} and plots ${website}/?plot=${plot_num21} and ${website}/?plot=${plot_num22}. There are ${amount / 1e9} CITY on each new plot. You can claim your first follow-up rewards of ${0.1 * amount / 1e9} CITY in 60 days. Congratulations!`;
+	};
+
+	if (usernames[address1].discord && usernames[address2].discord) {
+		await sendDiscordMessage(channel, getText('discord'));
+		bSent = true;
+	}
+	
+	if (usernames[address1].telegram && usernames[address2].telegram) {		
+		await telegramInstance.sendMessage(getText('telegram'));
+		bSent = true;
+	}
+
+	// users are on different networks
+	if (
+		usernames[address1].discord && !usernames[address1].telegram && !usernames[address2].discord && usernames[address2].telegram
+		||
+		usernames[address2].discord && !usernames[address2].telegram && !usernames[address1].discord && usernames[address1].telegram
+	) {
+		if (bSent)
+			throw Error(`already sent houses ${house_num1} and ${house_num2}`);
+		await sendDiscordMessage(channel, getText('discord'));
+		await telegramInstance.sendMessage(getText('telegram'));
+		bSent = true;
+	}
+
+	if (!bSent)
+		console.error(`not notified about houses ${house_num1} and ${house_num2}`, usernames);
 }
 
 // get usernames of a user on discord, telegram, etc
