@@ -225,8 +225,10 @@ async function notifyAboutRewards(arrEvents) {
 	let mentions = {};
 	for (let address in usernames) {
 		const { discord, telegram } = usernames[address];
-		mentions[address].discord = discord ? await formatDiscordMention(guild, discord) : `telegram user @${telegram}`;
-		mentions[address].telegram = telegram ? await telegramInstance.formatTagUser(telegram) : `discord user @${discord}`;
+		mentions[address] = {
+			discord: discord ? await formatDiscordMention(guild, discord) : `telegram user @${telegram}`,
+			telegram: telegram ? await telegramInstance.formatTagUser(telegram) : `discord user @${discord}`,
+		};
 	}
 	const getText = (network) => {
 		const both = mentions[address1][network].includes(' user ') // reorder
