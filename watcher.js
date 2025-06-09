@@ -237,6 +237,7 @@ async function notifyAboutRewards(arrEvents) {
 		return `${both} you've claimed your rewards! ${mentions[address1][network]} receives house ${website}/?house=${house_num1} and plots ${website}/?plot=${plot_num11} and ${website}/?plot=${plot_num12}, ${mentions[address2][network]} receives house ${website}/?house=${house_num2} and plots ${website}/?plot=${plot_num21} and ${website}/?plot=${plot_num22}. There are ${amount / 1e9} CITY on each new plot. You can claim your first follow-up rewards of ${0.1 * amount / 1e9} CITY in 60 days. Congratulations!`;
 	};
 
+	let bSent = false;
 	if (usernames[address1].discord && usernames[address2].discord) {
 		await sendDiscordMessage(channel, getText('discord'));
 		bSent = true;
