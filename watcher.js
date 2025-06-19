@@ -44,10 +44,10 @@ async function onAARequest(objAARequest, arrResponses) {
 	const aas = arrResponses.map(r => r.aa_address);
 	console.log(`request from ${address} trigger ${objAARequest.unit.unit} affected AAs`, aas);
 	for (let objAAResponse of arrResponses)
-		handleAAResponse(objAAResponse)
+		handleAAResponse(objAAResponse, true)
 }
 
-function handleAAResponse(objAAResponse) {
+function handleAAResponse(objAAResponse, bEstimated) {
 	const { aa_address, response: { responseVars } } = objAAResponse;
 	if (aa_address === conf.city_aa && responseVars) {
 		const { event, events } = responseVars;
@@ -67,7 +67,7 @@ function handleAAResponse(objAAResponse) {
 		else if (events) {
 			const arrEvents = JSON.parse(events);
 			console.log('build events', arrEvents);
-			notifyAboutRewards(arrEvents);
+			notifyAboutRewards(arrEvents, bEstimated);
 		}
 		else
 			console.log(`no event from city`);
@@ -210,7 +210,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	notifiedPlots[plot2_num] = true;
 }
 
-async function notifyAboutRewards(arrEvents) {
+async function notifyAboutRewards(arrEvents, bEstimated) {
 	const { owner: address1, house_num: house_num1 } = arrEvents[0];
 	const { owner: address2, house_num: house_num2 } = arrEvents[1];
 	const { plot_num: plot_num11, amount } = arrEvents[2];
@@ -234,6 +234,8 @@ async function notifyAboutRewards(arrEvents) {
 		const both = mentions[address1][network].includes(' user ') // reorder
 			? `${mentions[address2][network]} and ${mentions[address1][network]}`
 			: `${mentions[address1][network]} and ${mentions[address2][network]}`;
+		if (bEstimated)
+			return `${both} you've claimed your rewards! The links to your new houses and plots will become known in a few minutes, please wait.`;
 		return `${both} you've claimed your rewards! ${mentions[address1][network]} receives house ${website}/?house=${house_num1} and plots ${website}/?plot=${plot_num11} and ${website}/?plot=${plot_num12}, ${mentions[address2][network]} receives house ${website}/?house=${house_num2} and plots ${website}/?plot=${plot_num21} and ${website}/?plot=${plot_num22}. There are ${amount / 1e9} CITY on each new plot. You can claim your first follow-up rewards of ${0.1 * amount / 1e9} CITY in 60 days. Congratulations!`;
 	};
 
