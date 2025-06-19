@@ -6,6 +6,7 @@
     "node": ">=8"
   },
   "dependencies": {
+    "@fastify/cors": "^11.0.1",
     "aabot": "git+https://github.com/byteball/aabot.git",
     "discord.js": "^14.16.3",
     "fastify": "^5.4.0",

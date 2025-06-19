@@ -1,5 +1,6 @@
 const fastify = require('fastify');
 const conf = require('ocore/conf.js');
+const cors = require('@fastify/cors');
 
 const discordInstance = require('../discordInstance');
 
@@ -31,6 +32,13 @@ app.get('/display_name/:userId', async (request, reply) => {
 
 const startWebServer = async () => {
     try {
+
+        await app.register(cors, {
+            origin: '*',
+            methods: ['GET'],
+            allowedHeaders: ['Content-Type']
+        });
+
         await app.listen({ port: conf.webserverPort, host: '0.0.0.0' });
         app.log.info(`Server listening on port ${conf.webserverPort}`);
     } catch (err) {
