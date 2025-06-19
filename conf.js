@@ -31,6 +31,8 @@ exports.bNoPassphrase = true;
 
 exports.explicitStart = true;
 
+exports.webserverPort = 3040;
+
 exports.lib_aas = [
 	'3LUPAHCQMJCQDKFVZB7GFKYJMHZ5BC67',
 ];
