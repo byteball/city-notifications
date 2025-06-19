@@ -1,7 +1,7 @@
 /*jslint node: true */
 "use strict";
 
-exports.port = 3040;
+//exports.port = 6611;
 //exports.myUrl = 'wss://mydomain.com/bb';
 
 // for local testing
@@ -30,6 +30,8 @@ exports.socksPort = 9050;
 exports.bNoPassphrase = true;
 
 exports.explicitStart = true;
+
+exports.webserverPort = 3040;
 
 exports.lib_aas = [
 	'3LUPAHCQMJCQDKFVZB7GFKYJMHZ5BC67',
