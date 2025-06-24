@@ -20,9 +20,11 @@ const client = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 10,
 });
 
-let channelUsers = {};
+const usernameById = {};
+const displayNameById = {};
 
-const updateChannelUsers = async () => {
+
+const updateChannelUsers = async (slow = false) => {
   let offset = 0;
   console.log("Updating channel users...");
   try {
@@ -37,14 +39,18 @@ const updateChannelUsers = async () => {
       );
 
       for (let userInfo of result.users) {
-        channelUsers[userInfo.id] = userInfo.username;
+        usernameById[userInfo.id] = userInfo.username;
+        displayNameById[userInfo.id] = userInfo.firstName + (userInfo.lastName ? ' ' + userInfo.lastName : '');
       }
 
       if (result.users.length < 100) {
         break;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (slow) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       offset += 100;
     }
     console.log("Channel users updated successfully");
@@ -54,13 +60,22 @@ const updateChannelUsers = async () => {
 };
 
 const getUsernameById = (id) => {
-  return channelUsers[String(id)];
+  return usernameById[String(id)];
 };
 
+const getUserById = (id) => {
+  if (!usernameById[id]) return null;
+
+  return {
+    username: usernameById[id],
+    displayName: displayNameById[id],
+    id: +id,
+  };
+};
 
 const formatTagUser = (username) => {
   if (!username) return '';
-  
+
   return username.startsWith('@') ? username : `@${username}`;
 };
 
@@ -80,7 +95,7 @@ const startBot = async () => {
     });
 
     await updateChannelUsers();
-    setInterval(updateChannelUsers, CHANNEL_USERS_UPDATE_INTERVAL);
+    setInterval(() => updateChannelUsers(true), CHANNEL_USERS_UPDATE_INTERVAL);
 
     if (WEBHOOK_DOMAIN) {
       const fastify = require('fastify')();
@@ -108,4 +123,5 @@ module.exports = {
   startBot,
   formatTagUser,
   getUsernameById,
+  getUserById,
 };
