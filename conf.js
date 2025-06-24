@@ -56,8 +56,9 @@ exports.DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 exports.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 exports.TELEGRAM_CHANNEL_USERNAME = process.env.TELEGRAM_CHANNEL_USERNAME;
 exports.TELEGRAM_WEBHOOK_DOMAIN = process.env.TELEGRAM_WEBHOOK_DOMAIN;
-
 exports.TELEGRAM_WEBHOOK_PORT = process.env.TELEGRAM_WEBHOOK_PORT || 3000;
 
+exports.TELEGRAM_APPID = process.env.TELEGRAM_APPID;
+exports.TELEGRAM_APIHASH = process.env.TELEGRAM_APIHASH;
 
 console.log('finished city notifications conf');

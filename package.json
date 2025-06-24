@@ -10,6 +10,7 @@
     "aabot": "git+https://github.com/byteball/aabot.git",
     "discord.js": "^14.16.3",
     "fastify": "^5.4.0",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "telegram": "^2.26.22"
   }
 }
