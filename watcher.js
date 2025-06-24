@@ -269,7 +269,7 @@ async function notifyAboutRewards(arrEvents, bEstimated) {
 
 // get usernames of a user on discord, telegram, etc
 async function getUsernames(address) {
-	const rows = await db.query("SELECT af.attestor_address, m.payload FROM messages as m INNER JOIN attested_fields AS af USING(unit, message_index) WHERE af.attestor_address IN(?) AND af.address=? AND af.field='username' ORDER BY af.rowid DESC", [Object.keys(conf.attestors), address]);
+	const rows = await db.query("SELECT attested_fields.attestor_address, messages.payload FROM messages INNER JOIN attested_fields USING(unit, message_index) WHERE attested_fields.attestor_address IN(?) AND attested_fields.address=? AND attested_fields.field='username' ORDER BY attested_fields.rowid DESC", [Object.keys(conf.attestors), address]);
 	if (rows.length === 0)
 		throw Error(`no attestations for ${address}`);
 
