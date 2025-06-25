@@ -3,6 +3,7 @@ const conf = require('ocore/conf.js');
 const cors = require('@fastify/cors');
 
 const discordInstance = require('../discordInstance');
+const telegramInstance = require('../telegramInstance');
 
 const app = fastify({ logger: false });
 
@@ -17,13 +18,23 @@ app.get('/display_name/:userId', async (request, reply) => {
         return reply.status(400).send({ error: 'Invalid user ID format' });
     }
 
-    const user = await discordInstance.users.fetch(userId).catch(() => null);
+    const userInDiscord = await discordInstance.users.fetch(userId).catch(() => null);
 
-    if (user) {
+    if (userInDiscord) {
         return ({
-            username: user.username,
-            displayName: user.displayName,
-            id: user.id
+            username: userInDiscord.username,
+            displayName: userInDiscord.displayName,
+            id: userInDiscord.id
+        });
+    }
+
+    const userInTelegram = telegramInstance.getUserById(userId);
+
+    if (userInTelegram) {
+        return ({
+            username: userInTelegram.username,
+            displayName: userInTelegram.displayName,
+            id: userInTelegram.id
         });
     }
 

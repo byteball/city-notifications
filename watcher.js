@@ -145,7 +145,7 @@ async function sendDiscordMessage(channel, content) {
 	return true;
 }
 
-async function formatDiscordMention(guild,username) {
+async function formatDiscordMention(guild, username) {
 	const discordMember = guild.members.cache.find(m => m.user.username === username);
 	return discordMember ? `<@${discordMember.user.id}>` : '@' + username;
 }
@@ -169,14 +169,14 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		const { channel, guild } = await getDiscordChannelAndGuild();
 		const member1Mention = await formatDiscordMention(guild, usernames1.discord);
 		const member2Mention = await formatDiscordMention(guild, usernames2.discord);
-		
+
 		await sendDiscordMessage(channel, `${member1Mention} ${member2Mention} ${messageText}`);
 		bSent = true;
 	}
-	
+
 	if (usernames1.telegram && usernames2.telegram) {
 		const tagUsersForMessage = `${telegramInstance.formatTagUser(usernames1.telegram)} ${telegramInstance.formatTagUser(usernames2.telegram)}`;
-		
+
 		await telegramInstance.sendMessage(`${tagUsersForMessage} ${messageText}`);
 		bSent = true;
 	}
@@ -192,12 +192,12 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 
 		const discordUsername = usernames1.discord || usernames2.discord;
 		const telegramUsername = usernames1.telegram || usernames2.telegram;
-		
+
 		// discord
 		const { channel, guild } = await getDiscordChannelAndGuild();
 		const discordMentionForDS = await formatDiscordMention(guild, discordUsername);
 		await sendDiscordMessage(channel, `${discordMentionForDS} and telegram user @${telegramUsername} ${messageText}`);
-		
+
 		// telegram
 		const telegramMentionForTG = telegramInstance.formatTagUser(telegramUsername);
 		await telegramInstance.sendMessage(`${telegramMentionForTG} and discord user @${discordUsername} ${messageText}`);
@@ -269,15 +269,36 @@ async function notifyAboutRewards(arrEvents, bEstimated) {
 
 // get usernames of a user on discord, telegram, etc
 async function getUsernames(address) {
-	const rows = await db.query("SELECT attestor_address, value FROM attested_fields WHERE attestor_address IN(?) AND address=? AND field='username' ORDER BY rowid DESC", [Object.keys(conf.attestors), address]);
+	const rows = await db.query("SELECT attested_fields.attestor_address, messages.payload FROM messages INNER JOIN attested_fields USING(unit, message_index) WHERE attested_fields.attestor_address IN(?) AND attested_fields.address=? AND attested_fields.field='username' ORDER BY attested_fields.rowid DESC", [Object.keys(conf.attestors), address]);
 	if (rows.length === 0)
 		throw Error(`no attestations for ${address}`);
+
 	let usernames = {};
-	for (let { attestor_address, value: username } of rows) {
+	let tgId;
+
+	for (let { attestor_address, payload } of rows) {
+		const profile = JSON.parse(payload).profile;
 		const service = conf.attestors[attestor_address];
-		if (!usernames[service]) // the later attestation has precedence
-			usernames[service] = username;
+
+		for (const [field, value] of Object.entries(profile)) {
+			if (service === 'telegram' && field === 'userId') {
+				if (tgId) continue;
+				tgId = value;
+				continue;
+			}
+
+			if (!usernames[service] && field === 'username') // the later attestation has precedence
+				usernames[service] = value;
+		}
 	}
+
+	if (tgId) {
+		const newUsername = telegramInstance.getUsernameById(tgId);
+
+		if (newUsername)
+			usernames.telegram = newUsername;
+	}
+
 	return usernames;
 }
 
@@ -338,7 +359,9 @@ async function startWatching() {
 	if (!conf.DISCORD_CHANNEL_ID) throw new Error('error: DISCORD_CHANNEL_ID is required');
 	if (!conf.TELEGRAM_BOT_TOKEN) throw new Error('error: TELEGRAM_BOT_TOKEN is required');
 	if (!conf.TELEGRAM_CHANNEL_USERNAME) throw new Error('error: TELEGRAM_CHANNEL_USERNAME is required');
-	
+	if (!conf.TELEGRAM_APPID) throw new Error('error: TELEGRAM_APPID is required');
+	if (!conf.TELEGRAM_APIHASH) throw new Error('error: TELEGRAM_APIHASH is required');
+
 	await discordInstance.login(conf.DISCORD_BOT_TOKEN);
 	await telegramInstance.startBot();
 	
