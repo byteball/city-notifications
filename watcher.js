@@ -163,7 +163,7 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 	let bSent = false;
 
 	const claimUrl = `${website}/claim/${plot1_num}-${plot2_num}`;
-	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time. Please message each other to agree when you send your claiming transactions.`;
+	const messageText = `you became neighbors! Each of you gets two new empty plots and a house on the old one. You both need to claim the new plots and the house at ${claimUrl} within 10 minutes of each other. You can do this at any time (but not too late as the matching area around your plots might reduce due to more plots being bought). Please message each other to agree when you send your claiming transactions.`;
 
 	if (usernames1.discord && usernames2.discord) {
 		const { channel, guild } = await getDiscordChannelAndGuild();
