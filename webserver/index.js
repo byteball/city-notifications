@@ -42,20 +42,14 @@ app.get('/display_name/:userId', async (request, reply) => {
 });
 
 const startWebServer = async () => {
-    try {
+    await app.register(cors, {
+        origin: '*',
+        methods: ['GET'],
+        allowedHeaders: ['Content-Type']
+    });
 
-        await app.register(cors, {
-            origin: '*',
-            methods: ['GET'],
-            allowedHeaders: ['Content-Type']
-        });
-
-        await app.listen({ port: conf.webserverPort, host: '0.0.0.0' });
-        app.log.info(`Server listening on port ${conf.webserverPort}`);
-    } catch (err) {
-        app.log.error(err);
-        process.exit(1);
-    }
+    await app.listen({ port: conf.webserverPort, host: '0.0.0.0' });
+    app.log.info(`Server listening on port ${conf.webserverPort}`);
 };
 
 module.exports = {
