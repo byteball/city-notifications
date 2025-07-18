@@ -20,7 +20,18 @@ const telegramInstance = require('./telegramInstance');
 
 const website = 'https://city.obyte.org';
 
+const followup_reward_days = [
+	['1st', 60],
+	['2nd', 150],
+	['3rd', 270],
+	['4th', 450],
+	['5th', 720],
+	['6th', 1080],
+	['7th', 1620],
+];
+
 let notifiedPlots = {};
+let notifiedPaidFU = {};
 
 function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -54,15 +65,20 @@ function handleAAResponse(objAAResponse, bEstimated) {
 		if (event) {
 			const objEvent = JSON.parse(event);
 			console.log('city event', objEvent);
-			const { type, plot_num, city, x, y } = objEvent;
+			const { type } = objEvent;
 			if (type === 'allocate') {
+				const { plot_num, city, x, y } = objEvent;
 				console.log(`new plot ${plot_num} in ${city} at ${x}:${y}`);
 				if (typeof plot_num !== 'number')
 					throw Error(`plot_num ${plot_num} not a number`);
 				checkForNeighbors(plot_num);
 			}
+			else if (type === 'followup') {
+				const { house1_num, house2_num, reward } = objEvent;
+				notifyAboutPaidFollowupRewards(house1_num, house2_num, reward);
+			}
 			else
-				console.log(`not an allocation event`);
+				console.log(`not an allocation or followup event`);
 		}
 		else if (events) {
 			const arrEvents = JSON.parse(events);
@@ -217,6 +233,20 @@ async function notifyAboutRewards(arrEvents, bEstimated) {
 	const { plot_num: plot_num12 } = arrEvents[3];
 	const { plot_num: plot_num21 } = arrEvents[4];
 	const { plot_num: plot_num22 } = arrEvents[5];
+
+	const getText = (mention1, mention2) => {
+		const both = mention1.includes(' user ') // reorder
+			? `${mention2} and ${mention1}`
+			: `${mention1} and ${mention2}`;
+		if (bEstimated)
+			return `${both} you've claimed your rewards! The links to your new houses and plots will become known in a few minutes, please wait.`;
+		return `${both} you've claimed your rewards! ${mention1} receives house ${website}/?house=${house_num1} and plots ${website}/?plot=${plot_num11} and ${website}/?plot=${plot_num12}, ${mention2} receives house ${website}/?house=${house_num2} and plots ${website}/?plot=${plot_num21} and ${website}/?plot=${plot_num22}. There are ${amount / 1e9} CITY on each new plot. You can claim your first follow-up rewards of ${0.1 * amount / 1e9} CITY in 60 days. Congratulations!`;
+	};
+
+	await notify(address1, address2, getText);
+}
+
+async function notify(address1, address2, getText) {
 	let usernames = {
 		[address1]: await getUsernames(address1),
 		[address2]: await getUsernames(address2),
@@ -230,23 +260,15 @@ async function notifyAboutRewards(arrEvents, bEstimated) {
 			telegram: telegram ? await telegramInstance.formatTagUser(telegram) : `discord user @${discord}`,
 		};
 	}
-	const getText = (network) => {
-		const both = mentions[address1][network].includes(' user ') // reorder
-			? `${mentions[address2][network]} and ${mentions[address1][network]}`
-			: `${mentions[address1][network]} and ${mentions[address2][network]}`;
-		if (bEstimated)
-			return `${both} you've claimed your rewards! The links to your new houses and plots will become known in a few minutes, please wait.`;
-		return `${both} you've claimed your rewards! ${mentions[address1][network]} receives house ${website}/?house=${house_num1} and plots ${website}/?plot=${plot_num11} and ${website}/?plot=${plot_num12}, ${mentions[address2][network]} receives house ${website}/?house=${house_num2} and plots ${website}/?plot=${plot_num21} and ${website}/?plot=${plot_num22}. There are ${amount / 1e9} CITY on each new plot. You can claim your first follow-up rewards of ${0.1 * amount / 1e9} CITY in 60 days. Congratulations!`;
-	};
 
 	let bSent = false;
 	if (usernames[address1].discord && usernames[address2].discord) {
-		await sendDiscordMessage(channel, getText('discord'));
+		await sendDiscordMessage(channel, getText(mentions[address1].discord, mentions[address2].discord));
 		bSent = true;
 	}
 	
 	if (usernames[address1].telegram && usernames[address2].telegram) {		
-		await telegramInstance.sendMessage(getText('telegram'));
+		await telegramInstance.sendMessage(getText(mentions[address1].telegram, mentions[address2].telegram));
 		bSent = true;
 	}
 
@@ -258,13 +280,13 @@ async function notifyAboutRewards(arrEvents, bEstimated) {
 	) {
 		if (bSent)
 			throw Error(`already sent houses ${house_num1} and ${house_num2}`);
-		await sendDiscordMessage(channel, getText('discord'));
-		await telegramInstance.sendMessage(getText('telegram'));
+		await sendDiscordMessage(channel, getText(mentions[address1].discord, mentions[address2].discord));
+		await telegramInstance.sendMessage(getText(mentions[address1].telegram, mentions[address2].telegram));
 		bSent = true;
 	}
 
 	if (!bSent)
-		console.error(`not notified about houses ${house_num1} and ${house_num2}`, usernames);
+		console.error(`not notified`, usernames);
 }
 
 // get usernames of a user on discord, telegram, etc
@@ -341,6 +363,99 @@ async function checkForMissedNeighbors() {
 	console.log(`done checking for missed neighbors`);
 }
 
+
+function getFollowupRewardInfo(elapsed_days, bWithExpiry) {
+	for (let i = 0; i < followup_reward_days.length; i++) {
+		const [fu_reward_number, days] = followup_reward_days[i];
+		if (elapsed_days >= days && (!bWithExpiry || elapsed_days <= days + 10))
+			return { fu_reward_number, days, next_days: followup_reward_days[i + 1] ? followup_reward_days[i + 1][1] : null };
+	}
+	return {};
+}
+
+async function checkForFollowups() {
+	console.log(`checking for followups`);
+	const vars = aa_state.getAAStateVars(conf.city_aa);
+
+	function getHouseByPlotNum(plot_num) {
+		for (let name in vars) {
+			const m = name.match(/^house_(\d+)$/);
+			if (m) {
+				const house = vars[name];
+				if (house.plot_num === plot_num) {
+					const house_num = +m[1];
+					return { ...house, house_num };
+				}
+			}
+		}
+		throw Error(`no house found by plot ${plot_num}`);
+	}
+
+	for (let name in vars) {
+		const m = name.match(/^match_(\d+)_(\d+)$/);
+		if (m) {
+			const plot1_num = +m[1];
+			const plot2_num = +m[2];
+			const match = vars[name];
+			const elapsed_days = (Date.now() / 1000 - match.build_ts) / 3600 / 24;
+			const { fu_reward_number, days } = getFollowupRewardInfo(elapsed_days, true);
+			if (!fu_reward_number) continue;
+			const { house_num: house1_num, owner: owner1, amount } = getHouseByPlotNum(plot1_num);
+			const { house_num: house2_num, owner: owner2 } = getHouseByPlotNum(plot2_num);
+			const rows = await db.query("SELECT 1 FROM sent_followup_notifications WHERE house1_num=? AND house2_num=? AND reward_number=?", [house1_num, house2_num, fu_reward_number]);
+			if (rows.length > 0) {
+				console.log(`${fu_reward_number} followup reward notification already sent to houses ${house1_num}-${house2_num} (plots ${plot1_num}-${plot2_num})`);
+				continue;
+			}
+			const fu = vars['followup_' + house1_num + '_' + house2_num];
+			const reward = fu ? fu.reward : Math.floor(amount * vars.variables.followup_reward_share);
+
+			const getText = (mention1, mention2) => {
+				const both = mention1.includes(' user ') // reorder
+					? `${mention2} and ${mention1}`
+					: `${mention1} and ${mention2}`;
+				const claimUrl = `${website}/followup/${house1_num}-${house2_num}`;
+				return `${both} you are eligible for your ${fu_reward_number} follow-up reward after becoming neighbors ${days} days ago. Each of you gets ${reward / 1e9} CITY. You both need to claim the rewards at ${claimUrl} within 10 minutes of each other, like you claimed your initial rewards. Please claim the rewards within 10 days, otherwise they'll be lost. The rewards will be added to your accounts and can be used to buy new plots. Please message each other to agree when you send your claiming transactions.`;
+			};
+
+			await notify(owner1, owner2, getText);
+			await db.query("INSERT INTO sent_followup_notifications (house1_num, house2_num, reward_number) VALUES (?,?,?)", [house1_num, house2_num, fu_reward_number]);
+			console.log(`notified houses ${house1_num}-${house2_num} about the ${fu_reward_number} followup reward`);
+		}
+	}
+	console.log(`done checking for followups`);
+}
+
+
+async function notifyAboutPaidFollowupRewards(house1_num, house2_num, reward) {
+	const vars = aa_state.getUpcomingAAStateVars(conf.city_aa);
+	const house1 = vars['house_' + house1_num];
+	const house2 = vars['house_' + house2_num];
+	const match = vars['match_' + house1.plot_num + '_' + house2.plot_num];
+	if (!match) throw Error(`no match for ${house1_num}-${house2_num}`);
+	const elapsed_days = (Date.now() / 1000 - match.build_ts) / 3600 / 24;
+	const { fu_reward_number, days, next_days } = getFollowupRewardInfo(elapsed_days);
+	if (!fu_reward_number)
+		throw Error(`unrecognized followup reward by ${house1_num}-${house2_num}`);
+	const key = house1_num + '-' + fu_reward_number;
+	if (notifiedPaidFU[key])
+		return console.log(`already notified houses ${house1_num}-${house2_num} about the ${fu_reward_number} followup reward`);
+
+	const getText = (mention1, mention2) => {
+		const both = mention1.includes(' user ') // reorder
+			? `${mention2} and ${mention1}`
+			: `${mention1} and ${mention2}`;
+		let text = `${both} you've claimed your ${fu_reward_number} follow-up rewards, congratulations! A ${reward / 1e9} CITY reward has been added to each of your accounts. You can use these follow-up rewards to buy new plots as soon as you accumulate the sufficient amount.`;
+		if (next_days)
+			text += ` The next follow-up reward will be available in ${next_days - days} days.`;
+		return text;
+	};
+
+	await notify(house1.owner, house2.owner, getText);
+	notifiedPaidFU[key] = true;
+}
+
+
 // wait until all the addresses added in addWatchedAddress() are processed
 async function waitForUnprocessedAddresses() {
 	while (true) {
@@ -383,6 +498,8 @@ async function startWatching() {
 
 	await checkForMissedNeighbors();
 
+	await checkForFollowups();
+	setInterval(checkForFollowups, 12 * 3600_000);
 }
 
 exports.startWatching = startWatching;
