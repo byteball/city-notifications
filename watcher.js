@@ -437,7 +437,7 @@ async function notifyAboutPaidFollowupRewards(house1_num, house2_num, reward) {
 	const house2 = vars['house_' + house2_num];
 	const match = vars['match_' + house1.plot_num + '_' + house2.plot_num];
 	if (!match) throw Error(`no match for ${house1_num}-${house2_num}`);
-	const elapsed_days = (Date.now() / 1000 - match.build_ts) / 3600 / 24;
+	const elapsed_days = (Date.now() / 1000 - match.built_ts) / 3600 / 24;
 	const { fu_reward_number, days, next_days } = getFollowupRewardInfo(elapsed_days);
 	if (!fu_reward_number)
 		throw Error(`unrecognized followup reward by ${house1_num}-${house2_num}`);
