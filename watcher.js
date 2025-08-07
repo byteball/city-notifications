@@ -397,7 +397,11 @@ async function checkForFollowups() {
 			const plot1_num = +m[1];
 			const plot2_num = +m[2];
 			const match = vars[name];
-			const elapsed_days = (Date.now() / 1000 - match.build_ts) / 3600 / 24;
+			if (!match.built_ts) {
+				console.log(`houses not built`, name);
+				continue;
+			}
+			const elapsed_days = (Date.now() / 1000 - match.built_ts) / 3600 / 24;
 			const { fu_reward_number, days } = getFollowupRewardInfo(elapsed_days, true);
 			if (!fu_reward_number) continue;
 			const { house_num: house1_num, owner: owner1, amount } = getHouseByPlotNum(plot1_num);
