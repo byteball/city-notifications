@@ -279,7 +279,7 @@ async function notify(address1, address2, getText) {
 		usernames[address2].discord && !usernames[address2].telegram && !usernames[address1].discord && usernames[address1].telegram
 	) {
 		if (bSent)
-			throw Error(`already sent houses ${house_num1} and ${house_num2}`);
+			throw Error(`already sent to ${address1} and ${address2}`);
 		await sendDiscordMessage(channel, getText(mentions[address1].discord, mentions[address2].discord));
 		await telegramInstance.sendMessage(getText(mentions[address1].telegram, mentions[address2].telegram));
 		bSent = true;
