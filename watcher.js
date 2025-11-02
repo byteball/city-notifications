@@ -365,7 +365,7 @@ async function checkForMissedNeighbors() {
 
 
 function getFollowupRewardInfo(elapsed_days, bWithExpiry) {
-	for (let i = 0; i < followup_reward_days.length; i++) {
+	for (let i = followup_reward_days.length - 1; i >= 0; i--) {
 		const [fu_reward_number, days] = followup_reward_days[i];
 		if (elapsed_days >= days && (!bWithExpiry || elapsed_days <= days + 10))
 			return { fu_reward_number, days, next_days: followup_reward_days[i + 1] ? followup_reward_days[i + 1][1] : null };
