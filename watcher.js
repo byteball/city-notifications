@@ -147,7 +147,13 @@ async function getDiscordChannelAndGuild() {
 	const guild = channel.guild;
 	if (!guild) throw Error('server not found');
 	
-	await guild.members.fetch();
+	try {
+		await guild.members.fetch();
+	}
+	catch (e) {
+		console.log(`guild.members.fetch failed`, e);
+		throw e;
+	}
 	
 	return { channel, guild };
 }
