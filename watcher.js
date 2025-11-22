@@ -32,6 +32,7 @@ const followup_reward_days = [
 
 let notifiedPlots = {};
 let notifiedPaidFU = {};
+let bHaveMembers = false;
 
 function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -139,7 +140,7 @@ async function checkForNeighbors(plot_num) {
 	console.log(`done checking for neighbors of ${plot_num} in ${city}`);
 }
 
-async function getDiscordChannelAndGuild() {
+async function getDiscordChannelAndGuild(tries = 0) {
 	const channel = await discordInstance.channels.fetch(conf.DISCORD_CHANNEL_ID);
 	if (!channel)
 		throw Error(`failed to get discord channel`);
@@ -149,10 +150,15 @@ async function getDiscordChannelAndGuild() {
 	
 	try {
 		await guild.members.fetch();
+		bHaveMembers = true;
 	}
 	catch (e) {
 		console.log(`guild.members.fetch failed`, e);
-		throw e;
+		if (!bHaveMembers) {
+			if (tries > 10)
+				throw e;
+			return await getDiscordChannelAndGuild(tries + 1);
+		}
 	}
 	
 	return { channel, guild };
