@@ -37,7 +37,7 @@ exports.lib_aas = [
 	'3LUPAHCQMJCQDKFVZB7GFKYJMHZ5BC67',
 ];
 
-exports.city_aa = process.env.testnet ? 'XUXPOHYSH6PHQBTM32ZIJX3RHWBJHX4L' : 'CITYC3WWO5DD2UM6HQR3H333RRTD253Q';
+exports.city_aa = process.env.testnet ? 'XUXPOHYSH6PHQBTM32ZIJX3RHWBJHX4L' : 'CITY22RWZTXX3UDPVQEDJLXM7BQNXCGP';
 
 exports.attestors = process.env.testnet
 	? {
