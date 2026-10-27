@@ -148,19 +148,6 @@ async function getDiscordChannelAndGuild(tries = 0) {
 	const guild = channel.guild;
 	if (!guild) throw Error('server not found');
 	
-	try {
-		await guild.members.fetch();
-		bHaveMembers = true;
-	}
-	catch (e) {
-		console.log(`guild.members.fetch failed`, e);
-		if (!bHaveMembers) {
-			if (tries > 10)
-				throw e;
-			return await getDiscordChannelAndGuild(tries + 1);
-		}
-	}
-	
 	return { channel, guild };
 }
 
@@ -173,8 +160,11 @@ async function sendDiscordMessage(channel, content) {
 	return true;
 }
 
-async function formatDiscordMention(guild, username) {
-	const discordMember = guild.members.cache.find(m => m.user.username === username);
+async function formatDiscordMention(guild, username, userId) {
+	if (userId)
+		return `<@${userId}>`;
+	const matches = await guild.members.search({ query: username, limit: 10 });
+	const discordMember = matches.find(m => m.user.username === username);
 	return discordMember ? `<@${discordMember.user.id}>` : '@' + username;
 }
 
@@ -195,8 +185,8 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 
 	if (usernames1.discord && usernames2.discord) {
 		const { channel, guild } = await getDiscordChannelAndGuild();
-		const member1Mention = await formatDiscordMention(guild, usernames1.discord);
-		const member2Mention = await formatDiscordMention(guild, usernames2.discord);
+		const member1Mention = await formatDiscordMention(guild, usernames1.discord, usernames1.discordId);
+		const member2Mention = await formatDiscordMention(guild, usernames2.discord, usernames2.discordId);
 
 		await sendDiscordMessage(channel, `${member1Mention} ${member2Mention} ${messageText}`);
 		bSent = true;
@@ -218,12 +208,12 @@ async function notifyNeighbors(plot1_num, plot2_num) {
 		if (bSent)
 			throw Error(`already sent ${plot1_num} and ${plot2_num}`);
 
-		const discordUsername = usernames1.discord || usernames2.discord;
+		const discordData = usernames1.discord ? usernames1 : usernames2;
 		const telegramUsername = usernames1.telegram || usernames2.telegram;
 
 		// discord
 		const { channel, guild } = await getDiscordChannelAndGuild();
-		const discordMentionForDS = await formatDiscordMention(guild, discordUsername);
+		const discordMentionForDS = await formatDiscordMention(guild, discordData.discord, discordData.discordId);
 		await sendDiscordMessage(channel, `${discordMentionForDS} and telegram user @${telegramUsername} ${messageText}`);
 
 		// telegram
@@ -266,9 +256,9 @@ async function notify(address1, address2, getText) {
 	const { channel, guild } = await getDiscordChannelAndGuild();
 	let mentions = {};
 	for (let address in usernames) {
-		const { discord, telegram } = usernames[address];
+		const { discord, discordId, telegram } = usernames[address];
 		mentions[address] = {
-			discord: discord ? await formatDiscordMention(guild, discord) : `telegram user @${telegram}`,
+			discord: discord ? await formatDiscordMention(guild, discord, discordId) : `telegram user @${telegram}`,
 			telegram: telegram ? await telegramInstance.formatTagUser(telegram) : `discord user @${discord}`,
 		};
 	}
@@ -321,8 +311,12 @@ async function getUsernames(address) {
 				continue;
 			}
 
-			if (!usernames[service] && field === 'username') // the later attestation has precedence
+			if (!usernames[service] && field === 'username') { // the later attestation has precedence
 				usernames[service] = value;
+
+				if (service === 'discord' && profile.userId) // absent in legacy attestations
+					usernames.discordId = profile.userId;
+			}
 		}
 	}
 
