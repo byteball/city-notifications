@@ -148,19 +148,6 @@ async function getDiscordChannelAndGuild(tries = 0) {
 	const guild = channel.guild;
 	if (!guild) throw Error('server not found');
 	
-	try {
-		await guild.members.fetch();
-		bHaveMembers = true;
-	}
-	catch (e) {
-		console.log(`guild.members.fetch failed`, e);
-		if (!bHaveMembers) {
-			if (tries > 10)
-				throw e;
-			return await getDiscordChannelAndGuild(tries + 1);
-		}
-	}
-	
 	return { channel, guild };
 }
 
@@ -174,7 +161,8 @@ async function sendDiscordMessage(channel, content) {
 }
 
 async function formatDiscordMention(guild, username) {
-	const discordMember = guild.members.cache.find(m => m.user.username === username);
+	const matches = await guild.members.search({ query: username, limit: 10 });
+	const discordMember = matches.find(m => m.user.username === username);
 	return discordMember ? `<@${discordMember.user.id}>` : '@' + username;
 }
 
