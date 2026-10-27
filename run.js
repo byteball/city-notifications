@@ -1,5 +1,7 @@
 /*jslint node: true */
 "use strict";
+// must be loaded before ocore: ocore/storage.js freezes String.prototype, which breaks @vladfrangu/async_event_emitter (used by discord.js)
+require('discord.js');
 const eventBus = require('ocore/event_bus.js');
 const network = require('ocore/network.js');
 
